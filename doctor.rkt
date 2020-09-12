@@ -2,16 +2,35 @@
 #lang scheme/base
 ; В учебных целях используется базовая версия Scheme
 
+; функция, спрашивающая имя следующего пациента
+(define (ask-patient-name)
+ (begin
+  (println '(next!))
+  (println '(who are you?))
+  (print '**)
+  (car (read))
+ ) 
+)
+
 ; основная функция, запускающая "Доктора"
-; параметр name -- имя пациента
-(define (visit-doctor name)
-  (printf "Hello, ~a!\n" name)
-  (print '(what seems to be the trouble?))
-  (doctor-driver-loop name '())
+; параметр stop-word -- стоп-слово, при вводе которого в качестве имени пациента доктор завершает приём
+; параметр max-patients -- максимальное количество пациентов, которое принимает доктор
+(define (visit-doctor stop-word max-patients)
+  (if (= max-patients 0) (print '(its time to go home))
+      (let ((name(ask-patient-name)))
+         (if (eq? name stop-word) (print '(its time to go home))
+             (begin (printf "Hello, ~a!\n" name)
+                    (print '(what seems to be the trouble?))
+                    (doctor-driver-loop name '())
+                    (visit-doctor stop-word (- max-patients 1)))
+             )
+         )
+      )
 )
 
 ; цикл диалога Доктора с пациентом
 ; параметр name -- имя пациента
+; параметр history -- список предыдущих реплик пациента
 (define (doctor-driver-loop name history)
     (newline)
     (print '**) ; доктор ждёт ввода реплики пациента, приглашением к которому является **
@@ -19,7 +38,7 @@
       (cond 
 	    ((equal? user-response '(goodbye)) ; реплика '(goodbye) служит для выхода из цикла
              (printf "Goodbye, ~a!\n" name)
-             (print '(see you next week)))
+             (printf "(see you next week)\n"))
             (else (print (reply user-response history)) ; иначе Доктор генерирует ответ, печатает его и продолжает цикл
                   (doctor-driver-loop name (cons user-response history))
              )
@@ -29,8 +48,8 @@
 
 ; генерация ответной реплики по user-response -- реплике от пользователя 
 (define (reply user-response history)
-      (case (if (null? history) (random 2)
-                (random 3)) ; с равной вероятностью выбирается один из трёх способов построения ответа 
+      (case (if (null? history) (random 2) 
+                (random 3)) ; с равной вероятностью выбирается один из трёх (двух, если это первый ответ) способов построения ответа 
           ((0) (qualifier-answer user-response)) ; 1й способ
           ((1) (hedge))  ; 2й способ
           ((2) (history-answer history)) ; 3й способ
@@ -134,9 +153,7 @@
 
 ; 3й способ генерации ответной реплики -- возврат к предыдущей реплике пациентаы
 (define (history-answer history)
-  (append '(earlier you said that)
-          (let ((num (random (length history))))
-            (change-person (list-ref history num))
-            )
-          )
+  (append '(earlier you said that)         
+          (change-person (pick-random history))
+          )     
   )
