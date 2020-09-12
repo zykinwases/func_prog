@@ -58,7 +58,10 @@
 
 ; замена лица во фразе			
 (define (change-person phrase)
-        (many-replace-map '((am are)
+        ;(many-replace                   ; начальный вариант
+        ;(many-replace-iter              ; итеративный вариант
+        (many-replace-map               ; вариант с функцией высшего порядка
+                        '((am are)
                         (are am)
                         (i you)
                         (me you)
@@ -86,11 +89,12 @@
          )
   )
 
+; то же самое с помощью итеративного процесса
 (define (many-replace-iter replacement-pairs lst)
-        (let tail-splitter ((f lst) (l '()))
-          (cond ((null? f) l)
-                (else (tail-splitter (reverse (cdr (reverse f)))
-                                     (let* ((word (car (reverse f))) (pat-rep (assoc word replacement-pairs)))
+        (let iter-replacer ((f lst) (l '()))  ; на каждой итерации добавляет в список из второго аргумента изменённое, если нужно, слово
+          (cond ((null? f) (reverse l))       ; второй аргумент аккумулирует изменённую фразу в обратном порядке, перед выдачей - переворачиваем
+                (else (iter-replacer (cdr f)
+                                     (let* ((word (car f)) (pat-rep (assoc word replacement-pairs)))
                                        (cons (if pat-rep (cadr pat-rep)
                                                  word
                                                  )
@@ -103,6 +107,7 @@
         )
   )
 
+; то же самое с помощью функции высшего порядка
 (define (many-replace-map replacement-pairs lst) 
   (map (lambda (word)
          (let ((pat-rep (assoc word replacement-pairs)))
@@ -127,7 +132,7 @@
          )
 )
 
-; 3й способ
+; 3й способ генерации ответной реплики -- возврат к предыдущей реплике пациентаы
 (define (history-answer history)
   (append '(earlier you said that)
           (let ((num (random (length history))))
