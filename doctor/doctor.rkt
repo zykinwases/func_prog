@@ -48,12 +48,34 @@
 
 ; генерация ответной реплики по user-response -- реплике от пользователя 
 (define (reply user-response history)
-      (case (if (null? history) (random 2) 
-                (random 3)) ; с равной вероятностью выбирается один из трёх (двух, если это первый ответ) способов построения ответа 
-          ((0) (qualifier-answer user-response)) ; 1й способ
-          ((1) (hedge))  ; 2й способ
-          ((2) (history-answer history)) ; 3й способ
+  (let ((history? (if (null? history) 0 1)) (patterns? (if (check-patterns user-response) 2 0)))
+    (case (+ history? patterns?)
+      ((0) (case (random 2)
+             ((0) (qualifier-answer user-response)) 
+             ((1) (hedge)) 
+             )
+           )
+      ((1) (case (random 3)
+             ((0) (qualifier-answer user-response)) 
+             ((1) (hedge))  
+             ((2) (history-answer history)) 
+             )
+           )
+      ((2) (case (random 3)
+             ((0) (qualifier-answer user-response)) 
+             ((1) (hedge))  
+             ((2) (pattern-reply user-response)) 
+             )
+           )
+      ((3) (case (random 4)
+             ((0) (qualifier-answer user-response)) 
+             ((1) (hedge))  
+             ((2) (history-answer history))
+             ((3) (pattern-reply user-response)) 
+             )
+           )
       )
+    )
 )
 			
 ; 1й способ генерации ответной реплики -- замена лица в реплике пользователя и приписывание к результату нового начала
@@ -110,14 +132,14 @@
 
 ; то же самое с помощью итеративного процесса
 (define (many-replace-iter replacement-pairs lst)
-        (let iter-replacer ((f lst) (l '()))  ; на каждой итерации добавляет в список из второго аргумента изменённое, если нужно, слово
-          (cond ((null? f) (reverse l))       ; второй аргумент аккумулирует изменённую фразу в обратном порядке, перед выдачей - переворачиваем
-                (else (iter-replacer (cdr f)
-                                     (let* ((word (car f)) (pat-rep (assoc word replacement-pairs)))
+        (let iter-replacer ((raw lst) (res '()))  ; на каждой итерации добавляет в список из второго аргумента изменённое, если нужно, слово
+          (cond ((null? raw) (reverse res))       ; второй аргумент аккумулирует изменённую фразу в обратном порядке, перед выдачей - переворачиваем
+                (else (iter-replacer (cdr raw)
+                                     (let* ((word (car raw)) (pat-rep (assoc word replacement-pairs)))
                                        (cons (if pat-rep (cadr pat-rep)
                                                  word
                                                  )
-                                             l
+                                             res
                                        )
                        )
                       )
@@ -156,4 +178,75 @@
   (append '(earlier you said that)         
           (change-person (pick-random history))
           )     
+  )
+
+; 4й способ генерации ответной реплики -- ключевые слова
+(define patterns '( 
+                   ( ; начало данных 1й группы
+                    (depressed suicide exams university) ; список ключевых слов 1й группы
+                    ( ; список шаблонов для составления ответных реплик 1й группы 
+                     (when you feel depressed, go out for ice cream)
+                     (depression is a disease that can be treated)
+                     )
+                    ) ; завершение данных 1й группы
+                   ( ; начало данных 2й группы ...
+                    (mother father parents brother sister uncle ant grandma grandpa)
+                    (
+                     (tell me more about your * , i want to know all about your *)
+                     (why do you feel that way about your * ?)
+                     )
+                    )
+                   (
+                    (university scheme lections)
+                    (
+                     (your education is important)
+                     (how many time do you spend to learning ?)
+                     )
+                    )
+                   )
+  )
+
+; получение всех ключевых слов списком
+(define (get-key-words)
+  (foldl (lambda (group cur-keys)
+           (foldl cons cur-keys (car group)))
+         '()
+         patterns)
+  )
+
+; функция-предикат
+(define (check-patterns phrase)
+  (let* ((lst (get-key-words))
+         (res (ormap (lambda (word) (member word lst)) phrase))) ; проверяем, есть ли хотя бы одно совпадение с ключевым словом
+    (not (not res))                                              ; хотим в качестве ответа получать либо #t, либо #f
+    )
+  )
+
+; получение всех ключевых слов, содержащихся в фразе
+(define (get-used-words phrase)
+  (let ((key-words (get-key-words)))
+    (filter (lambda (word) (member word key-words))
+            phrase
+     )
+    )
+  )
+
+; получение всех доступных реплик по слову
+(define (get-patterns word)
+  (foldl (lambda (next-patterns result) (foldl cons result next-patterns))
+         '()
+         (map cadr (filter (lambda (group)                                 ; получение подходящих шаблонов в виде 
+                             (member word (car group))                     ; ((<шаблоны группы 1>) (<шаблоны группы 2>))
+                             )
+                           patterns
+                           )
+              )
+         )
+  )
+
+; функция построения ответа
+(define (pattern-reply phrase)
+  (let* ((key-word (pick-random (get-used-words phrase))) (new-phrase (pick-random (get-patterns key-word))))
+    (many-replace-map (list (list '* key-word)) new-phrase)
+    )
   )
