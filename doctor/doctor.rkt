@@ -39,7 +39,7 @@
 	    ((equal? user-response '(goodbye)) ; реплика '(goodbye) служит для выхода из цикла
              (printf "Goodbye, ~a!\n" name)
              (printf "(see you next week)\n"))
-            (else (print (reply user-response history)) ; иначе Доктор генерирует ответ, печатает его и продолжает цикл
+            (else (print (reply user-response history strategies)) ; иначе Доктор генерирует ответ, печатает его и продолжает цикл
                   (doctor-driver-loop name (cons user-response history))
              )
        )
@@ -47,38 +47,18 @@
 )
 
 ; генерация ответной реплики по user-response -- реплике от пользователя 
-(define (reply user-response history)
-  (let ((history? (if (null? history) 0 1)) (patterns? (if (check-patterns user-response) 2 0)))
-    (case (+ history? patterns?)
-      ((0) (case (random 2)
-             ((0) (qualifier-answer user-response)) 
-             ((1) (hedge)) 
-             )
-           )
-      ((1) (case (random 3)
-             ((0) (qualifier-answer user-response)) 
-             ((1) (hedge))  
-             ((2) (history-answer history)) 
-             )
-           )
-      ((2) (case (random 3)
-             ((0) (qualifier-answer user-response)) 
-             ((1) (hedge))  
-             ((2) (pattern-reply user-response)) 
-             )
-           )
-      ((3) (case (random 4)
-             ((0) (qualifier-answer user-response)) 
-             ((1) (hedge))  
-             ((2) (history-answer history))
-             ((3) (pattern-reply user-response)) 
-             )
-           )
-      )
+(define (reply user-response history strategies)
+  (let ((valid (filter (lambda (strategy) ((strategy-predicate strategy) user-response history '())) strategies)))
+    ((pick-random-with-weight (map cdr valid)) user-response history '())
     )
 )
 			
 ; 1й способ генерации ответной реплики -- замена лица в реплике пользователя и приписывание к результату нового начала
+(define qualifier-strategy (list (lambda (user-response history others) #t)
+                                   3
+                                   (lambda (user-response history others) (qualifier-answer user-response)))
+  )
+
 (define (qualifier-answer user-response)
         (append (pick-random '((you seem to think that)
                                (you feel that)
@@ -96,6 +76,18 @@
 (define (pick-random lst)
   (list-ref lst (random (length lst)))
 )
+
+; случайный выбор одного из элементов списка weighted-list с весами
+; ((вес1 элемент1) ...)
+(define (pick-random-with-weight weighted-list)
+  (let ((full-weight (foldl (lambda (elem res) (+ (car elem) res)) 0 weighted-list))) 
+    (let choose ((remaining (random full-weight)) (tail weighted-list))
+      (if (> (caar tail) remaining) (cadar tail)
+          (choose (- remaining (caar tail)) (cdr tail))
+       )
+      )
+    )
+  )
 
 ; замена лица во фразе			
 (define (change-person phrase)
@@ -162,6 +154,11 @@
   )
 
 ; 2й способ генерации ответной реплики -- случайный выбор одной из заготовленных фраз, не связанных с репликой пользователя
+(define hedge-strategy (list (lambda (user-response history others) #t)
+                             1
+                             (lambda (user-response history others) (hedge)))
+  )
+
 (define (hedge)
        (pick-random '((please go on)
                        (many people have the same sorts of feelings)
@@ -173,7 +170,12 @@
          )
 )
 
-; 3й способ генерации ответной реплики -- возврат к предыдущей реплике пациентаы
+; 3й способ генерации ответной реплики -- возврат к предыдущей реплике пациента
+(define history-strategy (list (lambda (user-response history others) (not (null? history)))
+                               2
+                               (lambda (user-response history others) (history-answer history)))
+  )
+
 (define (history-answer history)
   (append '(earlier you said that)         
           (change-person (pick-random history))
@@ -181,6 +183,11 @@
   )
 
 ; 4й способ генерации ответной реплики -- ключевые слова
+(define keywords-strategy (list (lambda (user-response history others) (check-patterns user-response))
+                                2
+                                (lambda (user-response history others) (pattern-reply user-response)))
+  )
+
 (define patterns '( 
                    ( ; начало данных 1й группы
                     (depressed suicide exams university) ; список ключевых слов 1й группы
@@ -250,3 +257,8 @@
     (many-replace-map (list (list '* key-word)) new-phrase)
     )
   )
+
+(define strategies (list qualifier-strategy hedge-strategy history-strategy keywords-strategy))
+(define (strategy-predicate strategy) (list-ref strategy 0))
+(define (strategy-weight strategy) (list-ref strategy 1))
+(define (strategy-body strategy) (list-ref strategy 2))
