@@ -241,14 +241,13 @@
 
 ; функция-предикат
 (define (check-patterns phrase)
-  (let* ((lst (get-key-words))
-         (res (ormap (lambda (word) (member word lst)) phrase))) ; проверяем, есть ли хотя бы одно совпадение с ключевым словом
+  (let ((res (ormap (lambda (word) (member word all-key-words)) phrase))) ; проверяем, есть ли хотя бы одно совпадение с ключевым словом
     (not (not res))                                              ; хотим в качестве ответа получать либо #t, либо #f
     )
   )
 
 ; получение всех ключевых слов списком
-(define (get-key-words)
+(define all-key-words
   (foldl (lambda (group cur-keys)
            (foldl cons cur-keys (car group)))
          '()
@@ -257,11 +256,9 @@
 
 ; получение всех ключевых слов, содержащихся в фразе
 (define (get-used-words phrase)
-  (let ((key-words (get-key-words)))
-    (filter (lambda (word) (member word key-words))
-            phrase
-     )
-    )
+  (filter (lambda (word) (member word all-key-words))
+          phrase
+          )
   )
 
 ; получение всех доступных реплик по слову
