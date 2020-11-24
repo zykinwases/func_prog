@@ -304,8 +304,8 @@
 
 ; 5й способ генерации ответа - автогенерация
 (define generation-strategy (list (lambda (user-response history others) #t)
-                                  5
-                                  (lambda (user-response history others) (mixed-generation user-response)))
+                                  10
+                                  (lambda (user-response history others) (mixed-generation (car user-response))))
   )
 
 ; структура стратегий - список стратегий
