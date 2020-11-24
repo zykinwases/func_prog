@@ -3,6 +3,7 @@
 ; В учебных целях используется базовая версия Scheme
 (require scheme/string)
 (require racket/format)
+(require "graph.rkt")
 ; основная функция, запускающая "Доктора"
 ; параметр stop-word -- стоп-слово, при вводе которого в качестве имени пациента доктор завершает приём
 ; параметр max-patients -- максимальное количество пациентов, которое принимает доктор
@@ -301,17 +302,16 @@
     )
   )
 
+; 5й способ генерации ответа - автогенерация
+(define generation-strategy (list (lambda (user-response history others) #t)
+                                  5
+                                  (lambda (user-response history others) (mixed-generation user-response)))
+  )
+
 ; структура стратегий - список стратегий
 ; каждая стратегия - список из трёх элементов: функция-предикат (применима ли стратегия),
 ; вес (натуральное число, чем больше вес, тем выше вероятность), тело (функция, возвращающая ответную реплику) 
-(define strategies (list qualifier-strategy hedge-strategy history-strategy keywords-strategy))
+(define strategies (list qualifier-strategy hedge-strategy history-strategy keywords-strategy generation-strategy))
 (define (strategy-predicate strategy) (list-ref strategy 0))
 (define (strategy-weight strategy) (list-ref strategy 1))
 (define (strategy-body strategy) (list-ref strategy 2))
-
-
-(define (kuku)
-  (let ((lol (read-line)))
-    (print (filter non-empty-string? (string-split (read-line) #px"\\s*\\b\\s*"))) ;#px"\\s*(\\.|!|\\?)\\s*"))
-    )
-  )

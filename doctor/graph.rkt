@@ -3,6 +3,7 @@
 (require scheme/string)
 
 (define input "train/text.txt")
+(provide (all-defined-out))
 
 (define forward-freq (make-hash))
 (define forward-ngramm (make-hash))
