@@ -2,21 +2,15 @@
 
 (require scheme/string)
 
-(define input "train/art2.txt")
+(define input "train/text.txt")
 (provide (all-defined-out))
 
-;таблица н-1грамм, с которых начинается предложения 
 (define forward-freq (make-hash))
-;взвешенный граф н-1грамм и следующих слов
 (define forward-ngramm (make-hash))
-;таблица н-1грамм, которыми заканчиваются предложения
 (define reverse-freq (make-hash))
-;взвешенный граф н-1грамм и предыдущих слов
 (define reverse-ngramm (make-hash))
-;длина н-грамм
-(define n 5)
+(define n 4)
 
-; формирует все графы по входному файлу
 (define (train-graphs file)
   (let ((in (open-input-file file)))
     (let reader ((line (read-line in)))
@@ -34,7 +28,6 @@
     )
   )
   
-; читает одну строку из входного файла и разбивает её на предложения
 (define (parse-line line)
   (map (lambda (sent)
          (reverse (cons "." (reverse (filter non-empty-string? (string-split sent #px"\\s*\\b\\s*"))))))
@@ -46,8 +39,6 @@
        )
   )
 
-; прямой режим
-; добавление предложения в таблицу частот
 (define (add-to-frw-freq sent)
   (let ((n-1-gramm (make-n-gramm sent (sub1 n))))
     (if (hash-has-key? forward-freq n-1-gramm)
@@ -57,7 +48,6 @@
    )
   )
 
-; добавление предложения в граф следования
 (define (add-to-frw-ngramms sent)
   (let loop ((rev-n-gramm (make-n-gramm sent n)) (rest sent))
     (begin
@@ -79,8 +69,6 @@
     )
   )
 
-; обратный режим
-; добавление предложения в таблицу частот
 (define (add-to-rev-freq sent)
   (let ((n-1-gramm (make-n-gramm (cdr (reverse sent)) (sub1 n))))
     (if (hash-has-key? reverse-freq n-1-gramm)
@@ -90,7 +78,6 @@
    )
   )
 
-; добавление предложения в граф следования
 (define (add-to-rev-ngramms sent)
   (let ((rev-sent (cdr (reverse (cons "." sent)))))
     (let loop ((rev-n-gramm (make-n-gramm rev-sent n)) (rest rev-sent))
@@ -123,16 +110,14 @@
    )
   )
 
-; получение списка всех н-грамм предложения (н - параметр)
 (define (make-all-ngramms sent n)
   (let loop ((rest sent) (res '()))
-    (if (<= (length rest) n) (cons rest res)
+    (if (< (length rest) n) res
         (loop (cdr rest) (cons (make-n-gramm rest n) res))
      )
    )
   )
 
-; взвешенный выбор случайного элемента из списка (элемент . вес)
 (define (pick-random-from-hash hash-list)
   (let ((full-weight (foldl (lambda (elem res) (+ (cdr elem) res)) 0 hash-list))) 
     (let choose ((remaining (random full-weight)) (tail hash-list))
@@ -143,8 +128,8 @@
     )
   )
 
-; прямой способ генерации по изначально заданной н-1грамме (в обратном порядке следования слов) 
 (define (forward-generation initial)
+  ;(let ((initial (pick-random-from-hash (hash->list forward-freq))))
     (let gener ((cur-n-1gramm initial) (res initial) (iter 50))
       (if (or (eq? (car res) ".") (not (hash-has-key? forward-ngramm cur-n-1gramm)) (= iter 0))
           (reverse res)
@@ -153,10 +138,11 @@
              )
        )
       )
+   ;)
   )
 
-; обратный способ генерации по изначально заданной н-1грамме
 (define (reverse-generation initial)
+  ;(let ((initial (pick-random-from-hash (hash->list reverse-freq))))
     (let gener ((cur-n-1gramm initial) (res initial) (iter 50))
       (if (or (eq? (car res) ".") (not (hash-has-key? reverse-ngramm cur-n-1gramm)) (= iter 0))
           (cdr res)
@@ -165,9 +151,9 @@
              )
        )
       )
+   ;)
   )
 
-; поиск всех н-1 грамм в графах, в которые включаются слова из списка
 (define (find-n-1gramms lst)
    (let loop ((res '()) (rest-lst lst) (rest-elem (car lst)) (keys (append (hash-keys forward-ngramm) (map reverse (hash-keys reverse-ngramm))))) 
          (let ((kek (filter (lambda (x) (member (car rest-elem) x)) keys)))
@@ -182,21 +168,19 @@
      )
   )
 
-; смешанный способ генерации 
 (define (mixed-generation sentence)
   (let loop ((extendable-n-1gramms (filter (lambda (ngramm) (or (hash-has-key? forward-ngramm ngramm) (hash-has-key? reverse-ngramm (reverse ngramm))))
                                                                 (find-n-1gramms (make-all-ngramms sentence (sub1 n))))) (k (sub1 n)))
-; цикл, производящий смешанную генерацию для полученных н-1грамм, которые получаются "расширением" к-грамм из основного предложения
     (if (null? extendable-n-1gramms)
         (if (> k 1) (loop (filter (lambda (ngramm) (or (hash-has-key? forward-ngramm ngramm) (hash-has-key? reverse-ngramm (reverse ngramm))))
-                                                                (find-n-1gramms (make-all-ngramms sentence (sub1 k)))) (sub1 k)) ;если генерировать ответ не на что среди к-грамм предложения, пытаемся сгенерировать ответ для к-1грамм
-            (forward-generation (pick-random-from-hash (hash->list forward-freq)))) ;не получилось ни для каких к - случайная прямая генерация
+                                                                (find-n-1gramms (make-all-ngramms sentence (sub1 k)))) (sub1 k))
+            (forward-generation (pick-random-from-hash (hash->list forward-freq))))
         (let ((n-1gramm (list-ref extendable-n-1gramms (random (length extendable-n-1gramms)))))
           (append (if (hash-has-key? reverse-ngramm (reverse n-1gramm))
                       (reverse-generation (reverse n-1gramm))
                       (reverse n-1gramm))
                   (if (hash-has-key? forward-ngramm n-1gramm)
-                      (let without-first-i ((sent (forward-generation n-1gramm)) (i (sub1 n))) ;удаляем повторный вывод н-1граммы
+                      (let without-first-i ((sent (forward-generation n-1gramm)) (i (sub1 n)))
                         (if (= i 0) sent
                             (without-first-i (cdr sent) (sub1 i))
                             )

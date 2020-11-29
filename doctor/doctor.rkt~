@@ -12,15 +12,14 @@
       (let ((name(ask-patient-name)))
          (if (equal? name (~a stop-word)) (printf "its time to go home")
              (begin (printf "Hello, ~a!\n" name)
-                    (printf "what seems to be the trouble?")
+                    (printf "what seems to be the trouble?\n")
                     (doctor-driver-loop name '())
                     (visit-doctor stop-word (- max-patients 1)))
              )
          )
       )
 )
-;i think that i cant give enough love to my girlfriend.
-;i assume myself as an unique person, but i cant achive that high.
+
 ; функция, спрашивающая имя следующего пациента
 (define (ask-patient-name)
  (begin
@@ -59,7 +58,7 @@
 (define (make-answer str)
   (let form ((cur str) (res '()))
     (if (null? cur) (string-join (reverse res))
-        (if (or (regexp-match-exact? #px"\\W+" (car cur)) (and (not (null? res)) (regexp-match-exact? #px"\\w+'" (car res)))) (form (cdr cur) (cons (string-append (car res) (car cur)) (cdr res)))
+        (if (regexp-match-exact? #px"\\W+" (car cur)) (form (cdr cur) (cons (string-append (car res) (car cur)) (cdr res)))
             (form (cdr cur) (cons (car cur) res))
          )
         )
@@ -158,7 +157,7 @@
 ; 1й способ генерации ответной реплики -- замена лица в реплике пользователя и приписывание к результату нового начала
 ; структура стратегии
 (define qualifier-strategy (list (lambda (user-response history others) #t)
-                                   0
+                                   3
                                    (lambda (user-response history others) (qualifier-answer user-response)))
   )
 
@@ -178,7 +177,7 @@
 ; 2й способ генерации ответной реплики -- случайный выбор одной из заготовленных фраз, не связанных с репликой пользователя
 ; структура стратегии
 (define hedge-strategy (list (lambda (user-response history others) #t)
-                             0
+                             1
                              (lambda (user-response history others) (hedge)))
   )
 
@@ -196,7 +195,7 @@
 ; 3й способ генерации ответной реплики -- возврат к предыдущей реплике пациента
 ; структура стратегии
 (define history-strategy (list (lambda (user-response history others) (not (null? history))) 
-                               0
+                               2
                                (lambda (user-response history others) (history-answer history)))
   )
 
@@ -209,7 +208,7 @@
 ; 4й способ генерации ответной реплики -- ключевые слова
 ; структура стратегии
 (define keywords-strategy (list (lambda (user-response history others) (check-patterns user-response))
-                                0
+                                2
                                 (lambda (user-response history others) (pattern-reply user-response)))
   )
 
@@ -303,7 +302,7 @@
 ; 5й способ генерации ответа - автогенерация
 (define generation-strategy (list (lambda (user-response history others) #t)
                                   10
-                                  (lambda (user-response history others) (mixed-generation (change-person (car user-response)))))
+                                  (lambda (user-response history others) (mixed-generation (car user-response))))
   )
 
 ; структура стратегий - список стратегий
